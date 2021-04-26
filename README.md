@@ -9,5 +9,5 @@ PS: 代码补全推荐使用`VScode的TabNine插件`
 然后我们会写一个in-memory的后端基于AST(抽象语法树)来实现具体操作</br>
 最后我们会写一个交互式命令行来接收SQL语句并把它传给后端
 
-## 第二章
+## 第二章: 二进制表达式(binary expressions)和where过滤
 
