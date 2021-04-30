@@ -113,7 +113,7 @@ func (t *table) evaluateBinaryCell(rowIndex uint, exp Expression) (MemoryCell, s
 	bexp := exp.Binary
 
 	// 左边的被操作数
-	l, _, lt, err := t.evaluateCell(rowIndex, bexp.A)
+	l, columnName, lt, err := t.evaluateCell(rowIndex, bexp.A)
 	if err != nil {
 		return nil, "", 0, err
 	}
@@ -131,35 +131,35 @@ func (t *table) evaluateBinaryCell(rowIndex uint, exp Expression) (MemoryCell, s
 		case EqSymbol:
 			eq := l.Equals(r)
 			if lt == TextType && rt == TextType && eq {
-				return TrueMemoryCell, "?column?", BoolType, nil
+				return TrueMemoryCell, columnName, BoolType, nil
 			}
 			if lt == IntType && rt == IntType && eq {
-				return TrueMemoryCell, "?column?", BoolType, nil
+				return TrueMemoryCell, columnName, BoolType, nil
 			}
 			if lt == BoolType && rt == BoolType && eq {
-				return TrueMemoryCell, "?column?", BoolType, nil
+				return TrueMemoryCell, columnName, BoolType, nil
 			}
 
-			return FalseMemoryCell, "?column?", BoolType, nil
+			return FalseMemoryCell, columnName, BoolType, nil
 		case NeqSymbol:
 			if lt != rt || !l.Equals(r) {
-				return TrueMemoryCell, "?column?", BoolType, nil
+				return TrueMemoryCell, columnName, BoolType, nil
 			}
 
-			return FalseMemoryCell, "?column?", BoolType, nil
+			return FalseMemoryCell, columnName, BoolType, nil
 		case ConcatSymbol:
 			if lt != TextType || rt != TextType {
 				return nil, "", 0, ErrInvalidOperands
 			}
 
-			return literalToMemoryCell(&Token{Kind: StringKind, Value: l.AsText() + r.AsText()}), "?column?", TextType, nil
+			return literalToMemoryCell(&Token{Kind: StringKind, Value: l.AsText() + r.AsText()}), columnName, TextType, nil
 		case PlusSymbol:
 			if lt != IntType || rt != IntType {
 				return nil, "", 0, ErrInvalidOperands
 			}
 
 			iValue := int(l.AsInt() + r.AsInt())
-			return literalToMemoryCell(&Token{Kind: NumericKind, Value: strconv.Itoa(iValue)}), "?column?", IntType, nil
+			return literalToMemoryCell(&Token{Kind: NumericKind, Value: strconv.Itoa(iValue)}), columnName, IntType, nil
 		default:
 			// TODO
 			break
@@ -175,7 +175,7 @@ func (t *table) evaluateBinaryCell(rowIndex uint, exp Expression) (MemoryCell, s
 				res = TrueMemoryCell
 			}
 
-			return res, "?column?", BoolType, nil
+			return res, columnName, BoolType, nil
 		case OrKeyword:
 			if lt != BoolType || rt != BoolType {
 				return nil, "", 0, ErrInvalidOperands
@@ -185,7 +185,7 @@ func (t *table) evaluateBinaryCell(rowIndex uint, exp Expression) (MemoryCell, s
 				res = TrueMemoryCell
 			}
 
-			return res, "?column?", BoolType, nil
+			return res, columnName, BoolType, nil
 		default:
 			break
 		}
