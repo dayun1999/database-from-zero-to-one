@@ -3,11 +3,9 @@ package yunsql
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
-	"github.com/chzyer/readline"
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -17,47 +15,19 @@ func RunRepl(b Backend) {
 	fmt.Println("欢迎来到云云数据库!")
 repl:
 	for {
-		fmt.Print("# ")
+		fmt.Print("-> ")
 		text, err := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
-		if err == readline.ErrInterrupt {
-			if len(text) == 0 {
-				break
-			} else {
-				continue repl
-			}
-		} else if err == io.EOF {
-			break
-		}
 		if err != nil {
 			fmt.Println("Error while reading line:", err)
 			continue repl
 		}
 
-		// parser := Parser{}
-
 		trimmed := strings.TrimSpace(text)
 		if trimmed == "quit" || trimmed == "exit" || trimmed == "\\q" {
 			break
 		}
-
-		// if trimmed == "\\dt" {
-		// 	debugTables(b)
-		// 	continue
-		// }
-
-		// if strings.HasPrefix(trimmed, "\\d") {
-		// 	name := strings.TrimSpace(trimmed[len("\\d"):])
-		// 	debugTable(b, name)
-		// 	continue
-		// }
-
-		//parseOnly := false
-		if strings.HasPrefix(trimmed, "\\p") {
-			text = strings.TrimSpace(trimmed[len("\\p"):])
-			//parseOnly = true
-		}
-
+		fmt.Printf("你输入的数据是: %s\n", text)
 		ast, err := Parse(text)
 		if err != nil {
 			fmt.Println("Error while parsing:", err)
@@ -65,30 +35,19 @@ repl:
 		}
 
 		for _, stmt := range ast.Statements {
-			// if parseOnly {
-			// 	fmt.Println(stmt.GenerateCode())
-			// 	continue
-			// }
-
 			switch stmt.Kind {
-			// case CreateIndexKind:
-			// 	err = b.CreateIndex(ast.Statements[0].CreateIndexStatement)
-			// 	if err != nil {
-			// 		fmt.Println("Error adding index on table:", err)
-			// 		continue repl
-			// 	}
+			case CreateIndexKind:
+				err = b.CreateIndex(ast.Statements[0].CreateIndexStatement)
+				if err != nil {
+					fmt.Println("Error adding index on table:", err)
+					continue repl
+				}
 			case CreateKind:
-				err = b.CreateTable(ast.Statements[0].CreateStatement)
+				err = b.CreateTable(ast.Statements[0].CreateTableStatement)
 				if err != nil {
 					fmt.Println("Error creating table:", err)
 					continue repl
 				}
-			// case DropTableKind:
-			// 	err = b.DropTable(ast.Statements[0].DropTableStatement)
-			// 	if err != nil {
-			// 		fmt.Println("Error dropping table:", err)
-			// 		continue repl
-			// 	}
 			case InsertKind:
 				err = b.Insert(stmt.InsertStatement)
 				if err != nil {
@@ -119,9 +78,11 @@ func doSelect(mb Backend, slct *SelectStatement) error {
 		return nil
 	}
 
+	// 这里用了tablewriter库,可以自定义表格式
 	table := tablewriter.NewWriter(os.Stdout)
 	header := []string{}
 	for _, col := range results.Columns {
+		// 只打印列的类型
 		header = append(header, col.Name)
 	}
 	table.SetHeader(header)

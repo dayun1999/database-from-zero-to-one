@@ -2,6 +2,8 @@ package yunsql
 
 import (
 	"errors"
+
+	"github.com/petar/GoLLRB/llrb"
 )
 
 type ColumnType uint
@@ -28,14 +30,26 @@ type Results struct {
 }
 
 type Backend interface {
-	CreateTable(*CreateStatement) error
+	CreateTable(*CreateTableStatement) error
 	Insert(*InsertStatement) error
 	Select(*SelectStatement) (*Results, error)
+	CreateIndex(*CreateIndexStatement) error
+}
+
+// 索引的解构
+type Index struct {
+	Name       string
+	Exp        Expression
+	Type       string
+	Unique     bool
+	PrimaryKey bool
+	Tree       *llrb.LLRB
 }
 
 type EmptyBackend struct{}
 
-func (eb EmptyBackend) CreateTable(_ *CreateStatement) error {
+// EmptyBackend 实现了接口Backend
+func (eb EmptyBackend) CreateTable(_ *CreateTableStatement) error {
 	return errors.New("create not support")
 }
 
@@ -45,4 +59,8 @@ func (eb EmptyBackend) Insert(_ *InsertStatement) error {
 
 func (eb EmptyBackend) Select(_ *SelectStatement) (*Results, error) {
 	return nil, errors.New("select not supported")
+}
+
+func (eb EmptyBackend) CreateIndex(_ *CreateIndexStatement) error {
+	return errors.New("create index not supported")
 }

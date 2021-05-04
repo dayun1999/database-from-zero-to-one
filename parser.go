@@ -5,7 +5,6 @@ import (
 	"fmt"
 )
 
-// parseing
 func TokenFromKeyword(k Keyword) Token {
 	return Token{
 		Kind:  KeywordKind,
@@ -111,12 +110,12 @@ func parseStatement(tokens []*Token, initialCursor uint, _ Token) (*Statement, u
 	}
 	// 不是SELECT 和 INSERT, 寻找Create
 
-	create, newCursor, ok := parseCreateStatement(tokens, cursor, semicolonToken)
+	create, newCursor, ok := parseCreateTableStatement(tokens, cursor, semicolonToken)
 	if ok {
 		// 证明找到了Selec语句
 		return &Statement{
-			Kind:            CreateKind,
-			CreateStatement: create,
+			Kind:                 CreateKind,
+			CreateTableStatement: create,
 		}, newCursor, true
 	}
 
@@ -147,6 +146,9 @@ func parseSelectStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 		return nil, initialCursor, false
 	}
 
+	// FIXME debug一下解析到的selectItem
+	debugSelectItem(item)
+
 	slct.Item = item
 	cursor = newCursor
 
@@ -157,13 +159,14 @@ func parseSelectStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 	// 找到from token
 	_, cursor, ok = parseToken(tokens, cursor, fromToken)
 	if ok {
-		from, newCursor, ok := parseTokenKind(tokens, cursor, IdentifierKind)
+		// 找到from之后接下来就要找表名
+		tableName, newCursor, ok := parseTokenKind(tokens, cursor, IdentifierKind)
 		if !ok {
-			helpMessage(tokens, cursor, "Expected FROM item")
+			helpMessage(tokens, cursor, "Expected table name after from token")
 			return nil, initialCursor, false
 		}
 
-		slct.From = from
+		slct.From = tableName
 		cursor = newCursor
 	}
 
@@ -176,6 +179,7 @@ func parseSelectStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 			helpMessage(tokens, cursor, "Expected WHERE conditionals")
 			return nil, initialCursor, false
 		}
+		// 这个where可以为例如age=20这样的expression
 		slct.Where = where
 		cursor = newCursor
 	}
@@ -209,6 +213,7 @@ func parseSelectStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 	return &slct, cursor, true
 }
 
+// REVIEW  function parseSelectItem的作用就是返回的select关键字到from关键字中间的[id, name, age]对应的某种形式
 func parseSelectItem(tokens []*Token, initialCursor uint, delimiters []Token) (*[]*SelectItem, uint, bool) {
 	cursor := initialCursor
 	var s []*SelectItem
@@ -219,8 +224,10 @@ outer:
 		}
 
 		current := tokens[cursor]
-		// 检查是否遇到了分隔符
+		// NOTE 这一段代码检查是否遇到了分隔符/结束符
+		// NOTE 举例:select id, name, age from users; 中分隔符就是分号(;)和from对应的token
 		for _, delimiter := range delimiters {
+			// 如果当前的
 			if delimiter.Equals(current) {
 				break outer
 			}
@@ -229,6 +236,7 @@ outer:
 		var ok bool
 		// 如果已经找到了部分item,就保持
 		if len(s) > 0 {
+			// 找到一个selectItem了,就查看下一个是不是逗号,如果不是逗号,也不是分隔符,那么就报错
 			_, cursor, ok = parseToken(tokens, cursor, TokenFromSymbol(CommaSymbol))
 			if !ok {
 				helpMessage(tokens, cursor, "Expected comma")
@@ -237,7 +245,7 @@ outer:
 		}
 
 		var si SelectItem
-		// 找一找有没有标志*
+		// REVIEW 寻找标志 * 或者as token
 		_, cursor, ok = parseToken(tokens, cursor, TokenFromSymbol(AsterisSymbol))
 		if ok {
 			si = SelectItem{
@@ -347,13 +355,12 @@ func parseInsertStatement(tokens []*Token, initialCursor uint, _ Token) (*Insert
 ////////////////////////////////
 // 解析Create语句
 // Finally, for create statements we'll look for the following token pattern:
-
 // CREATE
 // $table-name
 // (
 // [$column-name $column-type [, ...]]
 // )
-func parseCreateStatement(tokens []*Token, initialCursor uint, delimiter Token) (*CreateStatement, uint, bool) {
+func parseCreateTableStatement(tokens []*Token, initialCursor uint, delimiter Token) (*CreateTableStatement, uint, bool) {
 	cursor := initialCursor
 	// 找到CREATE
 	if !expectToken(tokens, cursor, TokenFromKeyword(CreateKeyword)) {
@@ -394,9 +401,9 @@ func parseCreateStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 	}
 	cursor++
 
-	return &CreateStatement{
-		Table: *name,
-		Cols:  cloums,
+	return &CreateTableStatement{
+		Name: *name,
+		Cols: cloums,
 	}, cursor, true
 }
 
@@ -404,7 +411,7 @@ func parseCreateStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 func parseColumnDefinitions(tokens []*Token, initialCursor uint, delimiter Token) (*[]*ColumnDefinition, uint, bool) {
 	cursor := initialCursor
 	cds := []*ColumnDefinition{}
-	// 循环找, 直到遇到分隔符(delimiter)位置
+	// 循环找, 直到遇到分隔符(这里指的是右括号)位置
 	for {
 		// 每次循环都要检查cursor是否越界
 		if cursor >= uint(len(tokens)) {
@@ -441,16 +448,23 @@ func parseColumnDefinitions(tokens []*Token, initialCursor uint, delimiter Token
 		}
 		cursor = newCursor
 
+		primaryKey := false
+		// 寻找有没有主键关键字
+		_, cursor, ok = parseToken(tokens, cursor, TokenFromKeyword(PrimaryKeyKeyword))
+		if ok {
+			primaryKey = true
+		}
+
 		cds = append(cds, &ColumnDefinition{
-			Name:     *id,
-			Datatype: *ty,
+			Name:       *id,
+			Datatype:   *ty,
+			PrimaryKey: primaryKey,
 		})
 	}
 	return &cds, cursor, true
 }
 
-// The parseExpressions helper will look for tokens separated by a comma until a delimiter is found.
-// It will use existing helpers plus parseExpression.
+// function parseExpressions的作用就是找到所有token对应的表达式, id对应一个表达式,age+2对应一个表达式
 func parseExpressions(tokens []*Token, initialCursor uint, delimiters []Token) (*[]*Expression, uint, bool) {
 	cursor := initialCursor
 	exps := []*Expression{}
@@ -463,7 +477,7 @@ outer:
 		// 寻找分隔符
 		current := tokens[cursor]
 		for _, d := range delimiters {
-			// 如果发现这个token就是分隔符,直接退出循环
+			// 如果发现这个token就是分隔符,直接退出outer标签
 			if d.Equals(current) {
 				break outer
 			}
@@ -495,8 +509,7 @@ outer:
 	return &exps, cursor, true
 }
 
-// parseExpression 会找到数字, 字符串, 标识符等等
-// func parseExpression(tokens []*Token, initialCursor uint, _ Token) (*Expression, uint, bool) {
+// parseExpression 会找到等等单个token封装的expression或者age+2这样连着的expression
 func parseExpression(tokens []*Token, initialCursor uint, delimiters []Token, minBp uint) (*Expression, uint, bool) {
 
 	cursor := initialCursor
@@ -579,6 +592,8 @@ outer:
 			helpMessage(tokens, cursor, "Expected right operand")
 			return nil, initialCursor, false
 		}
+		// REVIEW 比如select age+2, name form users;
+		// 这里exp的最终结果就是{age, 2, +}
 		exp = &Expression{
 			Binary: &BinaryExpression{
 				*exp,
@@ -595,7 +610,7 @@ outer:
 	return exp, cursor, true
 }
 
-//
+// 找到字面量(表名users, 数字1, 字符'hello', 布尔, null)的一个Token,并封装成Expression
 func parseLiteralExpression(tokens []*Token, initialCursor uint) (*Expression, uint, bool) {
 	cursor := initialCursor
 
@@ -620,7 +635,7 @@ func parseLiteralExpression(tokens []*Token, initialCursor uint) (*Expression, u
 	return nil, initialCursor, false
 }
 
-// parseToken辅助函数会找到特定kind的token消费掉
+// parseToken辅助函数会找到特定kind的token消费掉,相比parseToken范围更大,找的是一类Token
 func parseTokenKind(tokens []*Token, initialCursor uint, kind TokenKind) (*Token, uint, bool) {
 	cursor := initialCursor
 	// 检查有么有越界
@@ -634,7 +649,7 @@ func parseTokenKind(tokens []*Token, initialCursor uint, kind TokenKind) (*Token
 	return nil, initialCursor, false
 }
 
-// function parseToken 将会把匹配的token给消费掉
+// function parseToken 将会把匹配的token给消费掉,相比parseTokenKind范围更精确
 func parseToken(tokens []*Token, initialCursor uint, t Token) (*Token, uint, bool) {
 	cursor := initialCursor
 	// 检查有么有越界

@@ -11,3 +11,12 @@ PS: 代码补全推荐使用`VScode的TabNine插件`
 
 ## 第二章: 二进制表达式(binary expressions)和where过滤
 
+了解普拉特解析法([Pratt Parsing](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html))
+
+## 第三章: 建立索引
+
+### 为什么需要索引？
+
+### 如何建立索引？
+
+- 在`lexer.go`中加入`PRIMARY KEY`作为关键字类型的token

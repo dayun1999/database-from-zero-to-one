@@ -36,7 +36,9 @@ const (
 	LimitKeyword      Keyword = "limit"
 	OffsetKeyword     Keyword = "offset"
 	NullKeyword       Keyword = "null"
-	PrimaryKeyKeyword Keyword = "primary key"
+	PrimaryKeyKeyword Keyword = "primary key" // 主键
+	TrueKeyword       Keyword = "true"
+	FalseKeyword      Keyword = "false"
 )
 
 // 定义标志(比如括号这种)
@@ -65,10 +67,10 @@ type TokenKind uint
 const (
 	KeywordKind    TokenKind = iota // 关键字
 	SymbolKind                      // 标志
-	IdentifierKind                  // 标识符
-	StringKind                      // 字符串
+	IdentifierKind                  // NOTE "users", users, id, name或者双引号开头的等等都是标识符
+	StringKind                      // NOTE 'wdy'这样的单引号开头的才是字符串
 	NumericKind                     // 数字
-	BoolKind
+	BoolKind                        // 布尔值
 	NullKind
 )
 
@@ -102,14 +104,30 @@ func (t *Token) BindingPower() uint {
 		}
 	case SymbolKind:
 		switch Symbol(t.Value) {
+		// 二进制表达式中未将这些优先级分组,现在进行分组
+		// 优先级为2
 		case EqSymbol:
 			fallthrough
 		case NeqSymbol:
+			return 2
+
+		// 优先级为3
+		case LtSymbol:
 			fallthrough
+		case GtSymbol:
+			return 3
+
+		// 优先级为4
+		case LteSymbol:
+			fallthrough
+		case GteSymbol:
+			return 4
+
+		// 优先级为5
 		case ConcatSymbol:
 			fallthrough
 		case PlusSymbol:
-			return 3
+			return 5
 		}
 	}
 	return 0
@@ -148,6 +166,8 @@ lex:
 		return nil, fmt.Errorf("unable to lex Token %s at %d %d", hint, cur.loc.Line, cur.loc.Col)
 	}
 
+	// FIXME 这里先对tokens打印出来看看
+	debugTokens(tokens)
 	return tokens, nil
 }
 
@@ -259,6 +279,8 @@ func lexKeyword(source string, ic cursor) (*Token, cursor, bool) {
 		OffsetKeyword,
 		NullKeyword,
 		PrimaryKeyKeyword,
+		TrueKeyword,
+		FalseKeyword,
 	}
 	var options []string
 	for _, k := range Keywords {
@@ -275,9 +297,19 @@ func lexKeyword(source string, ic cursor) (*Token, cursor, bool) {
 	cur.pointer = ic.pointer + uint(len(match))
 	cur.loc.Col = ic.loc.Col + uint(len(match))
 
+	kind := KeywordKind
+
+	if match == string(TrueKeyword) || match == string(FalseKeyword) {
+		kind = BoolKind
+	}
+
+	if match == string(NullKeyword) {
+		kind = NullKind
+	}
+
 	return &Token{
 		Value: match,
-		Kind:  KeywordKind,
+		Kind:  kind,
 		Loc:   ic.loc,
 	}, cur, true
 }
@@ -320,7 +352,7 @@ func lexSymbol(source string, ic cursor) (*Token, cursor, bool) {
 		GtSymbol,
 		GteSymbol,
 	}
-	// TODO
+	
 	var options []string
 	for _, s := range symbols {
 		options = append(options, string(s))
