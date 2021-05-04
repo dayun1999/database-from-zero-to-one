@@ -44,15 +44,15 @@ func debugTokens(tokens []*Token) {
 	fmt.Println("--------------------------------")
 }
 
-// NOTE function debugSelectItem 调试得到的selectItem
-func debugSelectItem(items *[]*SelectItem) {
-	fmt.Println("======debugSelectItem=======")
-	fmt.Printf("当前输入的len(*[]*SelectItem)=%d\n", len(*items))
-	for i, item := range *items {
-		token := item.Exp.Literal.Value
-		fmt.Printf("第%d个slectItem的值为%v\n", i, token)
-	}
+// FIXME function debugSelectItem 调试得到的selectItem
+// !! EXPIREDhas some bugs
+// func debugSelectItem(items *[]*SelectItem) {
+// 	fmt.Println("======debugSelectItem=======")
+// 	fmt.Printf("当前输入的len(*[]*SelectItem)=%d\n", len(*items))
+// 	for i, item := range *items {
+// 		token := item.Exp.Literal.Value
+// 		fmt.Printf("第%d个slectItem的值为%v\n", i, token)
+// 	}
 
-	fmt.Println("================================")
-}
-
+// 	fmt.Println("================================")
+// }

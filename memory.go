@@ -88,9 +88,9 @@ func literalToMemoryCell(t *Token) MemoryCell {
 
 // 表的结构体
 type table struct {
-	Name        string  // 表名称
-	Columns     []string //列名,比如[]string{id, name, age}之类的字符串切片
-	ColumnTypes []ColumnType // 列的类型
+	Name        string         // 表名称
+	Columns     []string       //列名,比如[]string{id, name, age}之类的字符串切片
+	ColumnTypes []ColumnType   // 列的类型
 	Rows        [][]MemoryCell // 行的集合,每一行又是一个MemoryCell切片,且每个MemoryCell对应转换过来的插入的值,比如(1, 20, 'wdy')中的'wdy'
 	Indexes     []*Index
 }
@@ -109,7 +109,7 @@ func (t *table) evaluateLiteralCell(rowIndex uint, exp Expression) (MemoryCell, 
 	// 取出表达式的字面量
 	lit := exp.Literal
 	// FIXME 打印lit的值来看看
-	fmt.Printf("来自memory.go#evaluateLiteralCell,lit的值为%s\n", lit.Value)
+	// fmt.Printf("来自memory.go#evaluateLiteralCell,lit的值为%s\n", lit.Value)
 	if lit.Kind == IdentifierKind {
 		for i, tableCol := range t.Columns {
 			if tableCol == lit.Value {
@@ -118,7 +118,7 @@ func (t *table) evaluateLiteralCell(rowIndex uint, exp Expression) (MemoryCell, 
 		}
 		return nil, "", 0, ErrColumnDoesNotExist
 	}
-	
+
 	// 如果字面量是1,就是IntType
 	columnType := IntType
 	if lit.Kind == StringKind {
@@ -474,10 +474,10 @@ func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
 	}{}
 
 	// TODO 不知道这行是干什么的
-	// if slct.From == nil {
-	// 	t = &table{}
-	// 	t.Rows = [][]MemoryCell{}
-	// }
+	if slct.From == nil {
+		t = &table{}
+		t.Rows = [][]MemoryCell{}
+	}
 
 	// 增加
 	for _, iAndE := range t.getApplicableIndexes(slct.Where) {
@@ -485,6 +485,34 @@ func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
 		exp := iAndE.e
 		t = index.newTableFromSubset(t, exp)
 	}
+
+	// FIXME 拓展,支持select * from <table>;
+	finalItems := []*SelectItem{}
+	for _, item := range *slct.Item {
+		if item.Asterisk {
+			newItems := []*SelectItem{}
+			for j := 0; j < len(t.Columns); j++ {
+				newSelectItem := &SelectItem{
+					Exp: &Expression{
+						Literal: &Token{
+							Value: t.Columns[j],
+							Kind:  IdentifierKind,
+							Loc:   Location{0, uint(len("SELECT") + 1)},
+						},
+						Binary: nil,
+						Kind:   LiteralKind,
+					},
+					Asterisk: false,
+					As:       nil,
+				}
+				newItems = append(newItems, newSelectItem)
+			}
+			finalItems = append(finalItems, newItems...)
+		} else {
+			finalItems = append(finalItems, item)
+		}
+	}
+
 	// 遍历所有的行
 	for i := range t.Rows {
 		result := []Cell{}
@@ -502,7 +530,7 @@ func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
 			}
 		}
 
-		for _, col := range *slct.Item {
+		for _, col := range finalItems {
 			value, columName, columnType, err := t.evaluateCell(uint(i), *col.Exp)
 			if err != nil {
 				return nil, err
@@ -692,8 +720,8 @@ func (mb *MemoryBackend) CreateIndex(ci *CreateIndexStatement) error {
 		Name:       ci.Name.Value,
 		Exp:        ci.Exp,
 		PrimaryKey: ci.PrimaryKey,
-		Tree:       llrb.New(), // 索引的存储数据结构,底层是一个左倾的红黑2-3树
-		Type:       "red_black_tree",   // NOTE 索引的类型,这里索引的创建只用到了红黑树一种(postgres支持多种索引),所以暂时写死
+		Tree:       llrb.New(),       // 索引的存储数据结构,底层是一个左倾的红黑2-3树
+		Type:       "red_black_tree", // NOTE 索引的类型,这里索引的创建只用到了红黑树一种(postgres支持多种索引),所以暂时写死
 	}
 	table.Indexes = append(table.Indexes, index)
 

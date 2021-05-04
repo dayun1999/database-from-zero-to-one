@@ -70,10 +70,10 @@ type ColumnDefinition struct {
 // 创建带有索引的表
 // NOTE 具体见memory.go#CreateTableStatement
 type CreateIndexStatement struct {
-	Name       Token  // 这个不是表名,而是Token{Value: t.Name + "_pkey"},
+	Name       Token // 这个不是表名,而是Token{Value: t.Name + "_pkey"},
 	Unique     bool
 	PrimaryKey bool
-	Table      Token  // 这个才是表名代表的Token
+	Table      Token // 这个才是表名代表的Token
 	Exp        Expression
 }
 
@@ -91,8 +91,8 @@ type SelectStatement struct {
 
 // TODO 弄清楚SelectItem每个字段的具体含义
 type SelectItem struct {
-	Exp      *Expression  // 一个SelectItem对应的表达式的值就是一个id或者一个age或者一个name 
-	Asterisk bool // 是否是select * from 语句
+	Exp      *Expression // 一个SelectItem对应的表达式的值就是一个id或者一个age或者一个name
+	Asterisk bool        // 是否是select * from 语句
 	As       *Token
 }
 

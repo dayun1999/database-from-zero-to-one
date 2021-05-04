@@ -146,9 +146,6 @@ func parseSelectStatement(tokens []*Token, initialCursor uint, delimiter Token) 
 		return nil, initialCursor, false
 	}
 
-	// FIXME debug一下解析到的selectItem
-	debugSelectItem(item)
-
 	slct.Item = item
 	cursor = newCursor
 

@@ -352,7 +352,7 @@ func lexSymbol(source string, ic cursor) (*Token, cursor, bool) {
 		GtSymbol,
 		GteSymbol,
 	}
-	
+
 	var options []string
 	for _, s := range symbols {
 		options = append(options, string(s))
